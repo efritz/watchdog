@@ -23,7 +23,7 @@ type zeroBackOff struct{}
 func (b *zeroBackOff) Reset() {}
 
 func (b *zeroBackOff) NextInterval() time.Duration {
-	return 0 * time.Millisecond
+	return 0 * time.Second
 }
 
 // A back-off interval generator which always returns a zero interval.
