@@ -60,6 +60,25 @@ func (s *WatchdogSuite) TestStop(c *C) {
 	c.Assert(a2, Equals, a3)
 }
 
+func (s *WatchdogSuite) TestStopAfterSuccess(c *C) {
+	attempts := 0
+	m := NewMockRetry(func() bool {
+		attempts += 1
+		return true
+	})
+
+	w := NewWatcher(m, NewZeroBackOff())
+	w.Watch()
+	<-w.Success
+	w.Stop()
+
+	select {
+	case w.ShouldRetry <- true:
+		c.Fatalf("Watcher should not have accepted retry request.")
+	default:
+	}
+}
+
 func (s *WatchdogSuite) TestShouldRetry(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
