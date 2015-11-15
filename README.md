@@ -8,12 +8,14 @@ Go library for automatic service reconnection.
 
 ## Example
 
-TODO
+First, you must define a type that conforms to the `Retry` interface. The interface has
+a single method. In this example, the method attempts to dial a connection to a Riemann
+server and returns true on success and false on failure.
 
 ```go
 type RiemannService struct {
-	conn    *riemann.Connection
-	watcher watchdog.Watcher
+	conn    *riemann.Conn
+	watcher *watchdog.Watcher
 }
 
 func (rs *RiemannService) Retry() bool {
@@ -27,26 +29,35 @@ func (rs *RiemannService) Retry() bool {
 }
 ```
 
-TODO
+In order to ensure the application maintains a valid connection, create a watcher which
+will attempt to reconnect to the service in another goroutine until success. In between
+attempts the watcher will wait a configured interval (one second in this example).
 
 ```go
 func NewRiemannService() *RiemannService {
-	rc := &RiemannService{}
+	rs := &RiemannService{}
 
-	watcher := NewWatcher(rc, NewZeroBackOff())
-	rc.watcher = watcher
+	// Create watcher on Riemann service
+	w := NewWatcher(rs, NewConstantBackOff(time.Second))
+	rs.watcher = w
 
-	watcher.Watch()
-	<-watcher.Success
-	return rc
+	// Connect initially
+	w.Watch()
+	<-w.Success
+
+	return rs
 }
 ```
 
-TODO
+If you're using the service and detect a connection issue, you can alert the watcher
+so that it attempts to reconnect. On successful reconnect, the watcher sends a value
+on the `Success` channel. You can block on this read (to ensure a valid connection),
+or you can read this value in a goroutine (but should not be ignored).
 
 ```go
 func (rs *RiemannService) Write() {
 	if conn == nil {
+		// No connection, attempt reconnect
 		rs.watcher.ShouldRetry <- true
 		<-rs.watcher.Success
 	}
@@ -55,7 +66,8 @@ func (rs *RiemannService) Write() {
 }
 ```
 
-TODO
+Once you're done with the service, you should stop the watcher so that the background
+reconnect goroutines can be shut down.
 
 ```go
 func (rs *RiemannService) Close() {
