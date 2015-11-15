@@ -41,9 +41,8 @@ func NewRiemannService() *RiemannService {
 	w := NewWatcher(rs, NewConstantBackOff(time.Second))
 	rs.watcher = w
 
-	// Connect initially
-	w.Watch()
-	<-w.Success
+	w.Watch()   // Connect initially
+	<-w.Success // Block until success
 
 	return rs
 }
