@@ -56,9 +56,8 @@ or you can read this value in a goroutine (but should not be ignored).
 ```go
 func (rs *RiemannService) Write() {
 	if conn == nil {
-		// No connection, attempt reconnect
-		rs.watcher.ShouldRetry <- true
-		<-rs.watcher.Success
+		rs.watcher.ShouldRetry <- true // Alert watcher of failure
+		<-rs.watcher.Success           // Block until success
 	}
 
 	// Write omitted
