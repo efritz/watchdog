@@ -34,7 +34,7 @@ func NewExponentialBackOffConfig() *ExponentialBackOffConfig {
 //
 
 type exponentialBackOff struct {
-	attempts int64
+	attempts uint
 	config   *ExponentialBackOffConfig
 }
 
