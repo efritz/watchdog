@@ -43,12 +43,13 @@ func (b *exponentialBackOff) Reset() {
 }
 
 func (b *exponentialBackOff) NextInterval() time.Duration {
+	n := float64(b.attempts)
 	b.attempts += 1
 
 	init := float64(b.config.MinInterval)
 	base := b.config.Multiplier
 
-	bInterval := init * math.Pow(base, float64(b.attempts))
+	bInterval := init * math.Pow(base, n)
 	rInterval := time.Duration(randomNear(bInterval, b.config.RandFactor))
 
 	if rInterval < b.config.MaxInterval {
