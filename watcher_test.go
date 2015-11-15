@@ -30,7 +30,7 @@ func (s *WatchdogSuite) TestWatcherRespectsBackOff(c *C) {
 	w.Watch()
 
 	select {
-	case <-time.After(time.Millisecond * 600):
+	case <-time.After(time.Millisecond * 500):
 	case <-w.Success:
 		c.Fatalf("Success happened too quickly.")
 	}

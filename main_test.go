@@ -16,6 +16,22 @@ var _ = Suite(&WatchdogSuite{})
 //
 //
 
+func testSequence(c *C, b BackOff, base time.Duration, durations []uint) {
+	testRandomizedSequence(c, b, base, 0, durations)
+}
+
+func testRandomizedSequence(c *C, b BackOff, base time.Duration, ratio float64, durations []uint) {
+	for _, duration := range durations {
+		v := b.NextInterval()
+
+		c.Assert(v >= time.Duration(float64(base)*float64(duration)*(1-ratio)), Equals, true)
+		c.Assert(v <= time.Duration(float64(base)*float64(duration)*(1+ratio)), Equals, true)
+	}
+}
+
+//
+//
+
 type MockRetry struct {
 	f func() bool
 }
