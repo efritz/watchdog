@@ -46,3 +46,17 @@ func (s *WatchdogSuite) TestRandomized(c *C) {
 	b.Reset()
 	testRandomizedSequence(c, b, time.Millisecond, .25, []uint{1, 2, 4, 8, 16, 32})
 }
+
+func (s *WatchdogSuite) TestOverflowLimit(c *C) {
+	conf := NewExponentialBackOffConfig()
+	conf.RandFactor = 0
+	conf.Multiplier = 2
+	conf.MinInterval = time.Millisecond
+	conf.MaxInterval = time.Minute
+
+	b := NewExponentialBackOff(conf)
+
+	for i := 0; i < 100; i++ {
+		c.Assert(b.NextInterval() >= 1000, Equals, true)
+	}
+}
