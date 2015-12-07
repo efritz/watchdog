@@ -43,6 +43,15 @@ func (b *exponentialBackOff) Reset() {
 }
 
 func (b *exponentialBackOff) NextInterval() time.Duration {
+	// min * mult ^ n <     max
+	//       mult ^ n <     max / min
+	//              n < log(max / min) / log(mult)
+	maxAttempts := math.Log(float64(b.config.MaxInterval/b.config.MinInterval)) / math.Log(b.config.Multiplier)
+
+	if b.attempts >= uint(maxAttempts) {
+		return b.config.MaxInterval
+	}
+
 	n := float64(b.attempts)
 	b.attempts += 1
 
@@ -52,11 +61,7 @@ func (b *exponentialBackOff) NextInterval() time.Duration {
 	bInterval := init * math.Pow(base, n)
 	rInterval := time.Duration(randomNear(bInterval, b.config.RandFactor))
 
-	if rInterval < b.config.MaxInterval {
-		return rInterval
-	} else {
-		return b.config.MaxInterval
-	}
+	return rInterval
 }
 
 func randomNear(value, ratio float64) float64 {
