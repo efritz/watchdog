@@ -21,8 +21,8 @@ type ExponentialBackOffConfig struct {
 }
 
 // Create a new default ExponentialBackOffConfig.
-func NewExponentialBackOffConfig() *ExponentialBackOffConfig {
-	return &ExponentialBackOffConfig{
+func NewExponentialBackOffConfig() ExponentialBackOffConfig {
+	return ExponentialBackOffConfig{
 		Multiplier:  DefaultMultiplier,
 		RandFactor:  DefaultRandFactor,
 		MinInterval: DefaultMinInterval,
@@ -34,8 +34,9 @@ func NewExponentialBackOffConfig() *ExponentialBackOffConfig {
 //
 
 type exponentialBackOff struct {
-	attempts uint
-	config   *ExponentialBackOffConfig
+	attempts    uint
+	maxAttempts uint
+	config      ExponentialBackOffConfig
 }
 
 func (b *exponentialBackOff) Reset() {
@@ -43,12 +44,7 @@ func (b *exponentialBackOff) Reset() {
 }
 
 func (b *exponentialBackOff) NextInterval() time.Duration {
-	// min * mult ^ n <     max
-	//       mult ^ n <     max / min
-	//              n < log(max / min) / log(mult)
-	maxAttempts := math.Log(float64(b.config.MaxInterval/b.config.MinInterval)) / math.Log(b.config.Multiplier)
-
-	if b.attempts >= uint(maxAttempts) {
+	if b.attempts >= b.maxAttempts {
 		return b.config.MaxInterval
 	}
 
@@ -77,10 +73,16 @@ func randomNear(value, ratio float64) float64 {
 // previous failed attempts in the current sequence. The value returned
 // is given by min(MaxInterval, base +/- (base * RandFactor)). A random
 // factor of zero will make the generator deterministic.
-func NewExponentialBackOff(config *ExponentialBackOffConfig) BackOff {
+func NewExponentialBackOff(config ExponentialBackOffConfig) BackOff {
+	// min * mult ^ n <     max
+	//       mult ^ n <     max / min
+	//              n < log(max / min) / log(mult)
+	maxAttempts := math.Log(float64(config.MaxInterval/config.MinInterval)) / math.Log(config.Multiplier)
+
 	b := &exponentialBackOff{
-		attempts: 0,
-		config:   config,
+		attempts:    0,
+		maxAttempts: uint(maxAttempts),
+		config:      config,
 	}
 
 	b.Reset()
