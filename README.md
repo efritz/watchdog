@@ -7,7 +7,7 @@
 Go library for automatic service reconnection.
 
 This library depends on the [backoff](https://github.com/efritz/backoff) library, which
-defines structures for creating backoff interval generator.
+defines structures for creating back-off interval generator.
 
 ## Example
 
