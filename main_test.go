@@ -1,9 +1,10 @@
 package watchdog
 
 import (
-	. "gopkg.in/check.v1"
 	"testing"
 	"time"
+
+	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -12,22 +13,6 @@ func Test(t *testing.T) { TestingT(t) }
 type WatchdogSuite struct{}
 
 var _ = Suite(&WatchdogSuite{})
-
-//
-//
-
-func testSequence(c *C, b BackOff, base time.Duration, durations []uint) {
-	testRandomizedSequence(c, b, base, 0, durations)
-}
-
-func testRandomizedSequence(c *C, b BackOff, base time.Duration, ratio float64, durations []uint) {
-	for _, duration := range durations {
-		v := b.NextInterval()
-
-		c.Assert(v >= time.Duration(float64(base)*float64(duration)*(1-ratio)), Equals, true)
-		c.Assert(v <= time.Duration(float64(base)*float64(duration)*(1+ratio)), Equals, true)
-	}
-}
 
 //
 //
@@ -59,6 +44,12 @@ func NewMockBackOff(f1 func(), f2 func() time.Duration) BackOff {
 		f1: f1,
 		f2: f2,
 	}
+}
+
+func NewConstantBackOff(duration time.Duration) BackOff {
+	return NewMockBackOff(func() {}, func() time.Duration {
+		return duration
+	})
 }
 
 func (m *MockBackOff) Reset() {

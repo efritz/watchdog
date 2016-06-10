@@ -2,7 +2,11 @@ package watchdog
 
 import (
 	"time"
+
+	"github.com/efritz/backoff"
 )
+
+type BackOff backoff.BackOff
 
 // Retry is the interface to something which are invoked until success.
 type Retry interface {

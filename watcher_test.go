@@ -1,8 +1,9 @@
 package watchdog
 
 import (
-	. "gopkg.in/check.v1"
 	"time"
+
+	. "gopkg.in/check.v1"
 )
 
 func (s *WatchdogSuite) TestSuccess(c *C) {
@@ -12,7 +13,7 @@ func (s *WatchdogSuite) TestSuccess(c *C) {
 		return attempts >= 20
 	})
 
-	w := NewWatcher(m, NewZeroBackOff())
+	w := NewWatcher(m, NewConstantBackOff(0))
 	w.Watch()
 	<-w.Success
 
@@ -43,7 +44,7 @@ func (s *WatchdogSuite) TestStop(c *C) {
 		return false
 	})
 
-	w := NewWatcher(m, NewZeroBackOff())
+	w := NewWatcher(m, NewConstantBackOff(0))
 	w.Watch()
 
 	<-time.After(50 * time.Millisecond)
@@ -67,7 +68,7 @@ func (s *WatchdogSuite) TestStopAfterSuccess(c *C) {
 		return true
 	})
 
-	w := NewWatcher(m, NewZeroBackOff())
+	w := NewWatcher(m, NewConstantBackOff(0))
 	w.Watch()
 	<-w.Success
 	w.Stop()
@@ -86,7 +87,7 @@ func (s *WatchdogSuite) TestShouldRetry(c *C) {
 		return (attempts % 20) == 0
 	})
 
-	w := NewWatcher(m, NewZeroBackOff())
+	w := NewWatcher(m, NewConstantBackOff(0))
 	w.Watch()
 	<-w.Success
 	c.Assert(attempts, Equals, 20)

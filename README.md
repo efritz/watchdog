@@ -6,6 +6,9 @@
 
 Go library for automatic service reconnection.
 
+This library depends on the [backoff](https://github.com/efritz/backoff) library, which
+defines structures for creating backoff interval generator.
+
 ## Example
 
 First, you must define a type that conforms to the `Retry` interface. The interface has
