@@ -7,7 +7,7 @@
 Go library for automatic service reconnection.
 
 This library depends on the [backoff](https://github.com/efritz/backoff) library, which
-defines structures for creating back-off interval generator.
+defines structures for creating backoff interval generator.
 
 ## Example
 
@@ -41,7 +41,7 @@ func NewRiemannService() *RiemannService {
 	rs := &RiemannService{}
 
 	// Create watcher on Riemann service
-	w := NewWatcher(rs, NewConstantBackOff(time.Second))
+	w := NewWatcher(rs, NewConstantBackoff(time.Second))
 	rs.watcher = w
 
 	w.Watch()   // Connect initially

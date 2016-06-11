@@ -13,21 +13,21 @@ func (s *WatchdogSuite) TestSuccess(c *C) {
 		return attempts >= 20
 	})
 
-	w := NewWatcher(m, NewConstantBackOff(0))
+	w := NewWatcher(m, NewConstantBackoff(0))
 	w.Watch()
 	<-w.Success
 
 	c.Assert(attempts, Equals, 20)
 }
 
-func (s *WatchdogSuite) TestWatcherRespectsBackOff(c *C) {
+func (s *WatchdogSuite) TestWatcherRespectsBackoff(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
 		attempts += 1
 		return attempts >= 4
 	})
 
-	w := NewWatcher(m, NewConstantBackOff(time.Millisecond*200))
+	w := NewWatcher(m, NewConstantBackoff(time.Millisecond*200))
 	w.Watch()
 
 	select {
@@ -44,7 +44,7 @@ func (s *WatchdogSuite) TestStop(c *C) {
 		return false
 	})
 
-	w := NewWatcher(m, NewConstantBackOff(0))
+	w := NewWatcher(m, NewConstantBackoff(0))
 	w.Watch()
 
 	<-time.After(50 * time.Millisecond)
@@ -68,7 +68,7 @@ func (s *WatchdogSuite) TestStopAfterSuccess(c *C) {
 		return true
 	})
 
-	w := NewWatcher(m, NewConstantBackOff(0))
+	w := NewWatcher(m, NewConstantBackoff(0))
 	w.Watch()
 	<-w.Success
 	w.Stop()
@@ -87,7 +87,7 @@ func (s *WatchdogSuite) TestShouldRetry(c *C) {
 		return (attempts % 20) == 0
 	})
 
-	w := NewWatcher(m, NewConstantBackOff(0))
+	w := NewWatcher(m, NewConstantBackoff(0))
 	w.Watch()
 	<-w.Success
 	c.Assert(attempts, Equals, 20)
@@ -109,7 +109,7 @@ func (s *WatchdogSuite) TestShouldRetryIgnored(c *C) {
 	})
 
 	resets := 0
-	b := NewMockBackOff(func() {
+	b := NewMockBackoff(func() {
 		resets += 1
 	}, func() time.Duration {
 		return 0 * time.Millisecond
@@ -136,7 +136,7 @@ func (s *WatchdogSuite) TestShouldRetryIgnored(c *C) {
 	c.Assert(a2, Not(Equals), a3)
 }
 
-func (s *WatchdogSuite) TestShouldRetryResetsBackOff(c *C) {
+func (s *WatchdogSuite) TestShouldRetryResetsBackoff(c *C) {
 	attempts1 := 0
 	m := NewMockRetry(func() bool {
 		attempts1 += 1
@@ -144,7 +144,7 @@ func (s *WatchdogSuite) TestShouldRetryResetsBackOff(c *C) {
 	})
 
 	attempts2 := 0
-	b := NewMockBackOff(func() {
+	b := NewMockBackoff(func() {
 		attempts2 = 0
 	}, func() time.Duration {
 		attempts2 += 1

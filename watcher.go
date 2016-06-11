@@ -6,7 +6,7 @@ import (
 	"github.com/efritz/backoff"
 )
 
-type BackOff backoff.BackOff
+type Backoff backoff.Backoff
 
 // Retry is the interface to something which are invoked until success.
 type Retry interface {
@@ -17,7 +17,7 @@ type Retry interface {
 // A Watcher invokes a Retry function until success.
 type Watcher struct {
 	retry   Retry
-	backOff BackOff
+	backoff Backoff
 
 	// The channel on which a quit signal can be sent. The watcher will
 	// shutdown its goroutines after receiving a value on this channel.
@@ -37,10 +37,10 @@ type Watcher struct {
 }
 
 // Create a new watcher with the given retry function and interval generator.
-func NewWatcher(retry Retry, backOff BackOff) *Watcher {
+func NewWatcher(retry Retry, backoff Backoff) *Watcher {
 	return &Watcher{
 		retry:   retry,
-		backOff: backOff,
+		backoff: backoff,
 
 		Quit:        make(chan bool),
 		ShouldRetry: make(chan bool),
@@ -56,11 +56,11 @@ func (w *Watcher) Watch() {
 	go func() {
 		for {
 			if !w.retry.Retry() {
-				w.backOff.Reset()
+				w.backoff.Reset()
 
 			loop:
 				for {
-					interval := w.backOff.NextInterval()
+					interval := w.backoff.NextInterval()
 
 					select {
 					case <-time.After(interval):

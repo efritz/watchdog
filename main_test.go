@@ -34,28 +34,28 @@ func (m *MockRetry) Retry() bool {
 //
 //
 
-type MockBackOff struct {
+type MockBackoff struct {
 	f1 func()
 	f2 func() time.Duration
 }
 
-func NewMockBackOff(f1 func(), f2 func() time.Duration) BackOff {
-	return &MockBackOff{
+func NewMockBackoff(f1 func(), f2 func() time.Duration) Backoff {
+	return &MockBackoff{
 		f1: f1,
 		f2: f2,
 	}
 }
 
-func NewConstantBackOff(duration time.Duration) BackOff {
-	return NewMockBackOff(func() {}, func() time.Duration {
+func NewConstantBackoff(duration time.Duration) Backoff {
+	return NewMockBackoff(func() {}, func() time.Duration {
 		return duration
 	})
 }
 
-func (m *MockBackOff) Reset() {
+func (m *MockBackoff) Reset() {
 	m.f1()
 }
 
-func (m *MockBackOff) NextInterval() time.Duration {
+func (m *MockBackoff) NextInterval() time.Duration {
 	return m.f2()
 }
