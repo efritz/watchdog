@@ -87,7 +87,7 @@ func (s *WatchdogSuite) TestStartAfterStop(c *C) {
 	w.Stop()
 }
 
-func (s *WatchdogSuite) TestShouldRetry(c *C) {
+func (s *WatchdogSuite) TestCheck(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
 		attempts++
@@ -99,16 +99,16 @@ func (s *WatchdogSuite) TestShouldRetry(c *C) {
 	<-ch
 	c.Assert(attempts, Equals, 20)
 
-	w.Restart()
+	w.Check()
 	<-ch
 	c.Assert(attempts, Equals, 40)
 
-	w.Restart()
+	w.Check()
 	<-ch
 	c.Assert(attempts, Equals, 60)
 }
 
-func (s *WatchdogSuite) TestShouldRetryIgnored(c *C) {
+func (s *WatchdogSuite) TestCheckIgnored(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
 		attempts++
@@ -127,23 +127,22 @@ func (s *WatchdogSuite) TestShouldRetryIgnored(c *C) {
 
 	a1 := attempts
 	<-time.After(50 * time.Millisecond)
-	w.Restart()
+	w.Check()
 
 	a2 := attempts
 	<-time.After(50 * time.Millisecond)
-	w.Restart()
+	w.Check()
 
 	a3 := attempts
 	<-time.After(50 * time.Millisecond)
-	w.Restart()
-
 	w.Stop()
+
 	c.Assert(resets, Equals, 1)
 	c.Assert(a1, Not(Equals), a2)
 	c.Assert(a2, Not(Equals), a3)
 }
 
-func (s *WatchdogSuite) TestShouldRetryResetsBackoff(c *C) {
+func (s *WatchdogSuite) TestCheckResetsBackoff(c *C) {
 	attempts1 := 0
 	m := NewMockRetry(func() bool {
 		attempts1++
@@ -164,7 +163,7 @@ func (s *WatchdogSuite) TestShouldRetryResetsBackoff(c *C) {
 	c.Assert(attempts1, Equals, 20)
 	c.Assert(attempts2, Equals, 19)
 
-	w.Restart()
+	w.Check()
 	<-ch
 	c.Assert(attempts1, Equals, 40)
 	c.Assert(attempts2, Equals, 19)

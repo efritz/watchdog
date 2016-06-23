@@ -55,15 +55,15 @@ func NewRiemannService() *RiemannService {
 
 If you're using the service and detect a connection issue, you can alert the watcher
 so that it attempts to reconnect. On successful reconnect, the watcher sends a value
-on a channel returned by `Start` channel. You can block on this read (to ensure a
+on a channel returned by the `Start` method. You can block on this read (to ensure a
 valid connection), or you can read this value in a goroutine (but must be read to
 prevent deadlocks within the watcher's background reconnect goroutine).
 
 ```go
 func (rs *RiemannService) Write() {
 	if conn == nil {
-		rs.watcher.Restart() // Alert watcher of failure
-		<-rs.connected       // Block until success
+		rs.watcher.Check() // Alert watcher of failure
+		<-rs.connected     // Block until success
 	}
 
 	// Write omitted

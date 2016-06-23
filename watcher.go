@@ -122,11 +122,11 @@ func (w *Watcher) Stop() {
 
 }
 
-// Restart will request the watcher to re-invoke the retry function
+// Check will request the watcher to re-invoke the retry function
 // until success. If the watcher is already in a retry cycle, then
 // this function has no observable effect. This method does not do
 // anything if the Stop method has been called.
-func (w *Watcher) Restart() {
+func (w *Watcher) Check() {
 	if !w.watching {
 		return
 	}
