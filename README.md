@@ -17,8 +17,9 @@ server and returns true on success and false on failure.
 
 ```go
 type RiemannService struct {
-	conn    *riemann.Conn
-	watcher *watchdog.Watcher
+	conn      *riemann.Conn
+	watcher   *watchdog.Watcher
+	connected <-chan struct{}
 }
 
 func (rs *RiemannService) Retry() bool {
@@ -42,25 +43,27 @@ func NewRiemannService() *RiemannService {
 
 	// Create watcher on Riemann service
 	w := NewWatcher(rs, NewConstantBackoff(time.Second))
+
+	connected := w.Start() // Connect initially,
+	<-connected            // Block until success
+
 	rs.watcher = w
-
-	w.Watch()   // Connect initially
-	<-w.Success // Block until success
-
+	rs.connected = connected
 	return rs
 }
 ```
 
 If you're using the service and detect a connection issue, you can alert the watcher
 so that it attempts to reconnect. On successful reconnect, the watcher sends a value
-on the `Success` channel. You can block on this read (to ensure a valid connection),
-or you can read this value in a goroutine (but should not be ignored).
+on a channel returned by `Start` channel. You can block on this read (to ensure a
+valid connection), or you can read this value in a goroutine (but must be read to
+prevent deadlocks within the watcher's background reconnect goroutine).
 
 ```go
 func (rs *RiemannService) Write() {
 	if conn == nil {
-		rs.watcher.ShouldRetry <- true // Alert watcher of failure
-		<-rs.watcher.Success           // Block until success
+		rs.watcher.Restart() // Alert watcher of failure
+		<-rs.connected       // Block until success
 	}
 
 	// Write omitted

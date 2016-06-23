@@ -9,13 +9,12 @@ import (
 func (s *WatchdogSuite) TestSuccess(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
-		attempts += 1
+		attempts++
 		return attempts >= 20
 	})
 
 	w := NewWatcher(m, NewConstantBackoff(0))
-	w.Watch()
-	<-w.Success
+	<-w.Start()
 
 	c.Assert(attempts, Equals, 20)
 }
@@ -23,16 +22,16 @@ func (s *WatchdogSuite) TestSuccess(c *C) {
 func (s *WatchdogSuite) TestWatcherRespectsBackoff(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
-		attempts += 1
+		attempts++
 		return attempts >= 4
 	})
 
 	w := NewWatcher(m, NewConstantBackoff(time.Millisecond*200))
-	w.Watch()
+	ch := w.Start()
 
 	select {
 	case <-time.After(time.Millisecond * 500):
-	case <-w.Success:
+	case <-ch:
 		c.Fatalf("Success happened too quickly.")
 	}
 }
@@ -40,12 +39,12 @@ func (s *WatchdogSuite) TestWatcherRespectsBackoff(c *C) {
 func (s *WatchdogSuite) TestStop(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
-		attempts += 1
+		attempts++
 		return false
 	})
 
 	w := NewWatcher(m, NewConstantBackoff(0))
-	w.Watch()
+	w.Start()
 
 	<-time.After(50 * time.Millisecond)
 	a1 := attempts
@@ -64,71 +63,79 @@ func (s *WatchdogSuite) TestStop(c *C) {
 func (s *WatchdogSuite) TestStopAfterSuccess(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
-		attempts += 1
+		attempts++
 		return true
 	})
 
 	w := NewWatcher(m, NewConstantBackoff(0))
-	w.Watch()
-	<-w.Success
+	<-w.Start()
+	w.Stop()
+}
+
+func (s *WatchdogSuite) TestStartAfterStop(c *C) {
+	attempts := 0
+	m := NewMockRetry(func() bool {
+		attempts++
+		return true
+	})
+
+	w := NewWatcher(m, NewConstantBackoff(0))
+	<-w.Start()
 	w.Stop()
 
-	select {
-	case w.ShouldRetry <- true:
-		c.Fatalf("Watcher should not have accepted retry request.")
-	default:
-	}
+	<-w.Start()
+	w.Stop()
 }
 
 func (s *WatchdogSuite) TestShouldRetry(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
-		attempts += 1
+		attempts++
 		return (attempts % 20) == 0
 	})
 
 	w := NewWatcher(m, NewConstantBackoff(0))
-	w.Watch()
-	<-w.Success
+	ch := w.Start()
+	<-ch
 	c.Assert(attempts, Equals, 20)
 
-	w.ShouldRetry <- true
-	<-w.Success
+	w.Restart()
+	<-ch
 	c.Assert(attempts, Equals, 40)
 
-	w.ShouldRetry <- true
-	<-w.Success
+	w.Restart()
+	<-ch
 	c.Assert(attempts, Equals, 60)
 }
 
 func (s *WatchdogSuite) TestShouldRetryIgnored(c *C) {
 	attempts := 0
 	m := NewMockRetry(func() bool {
-		attempts += 1
+		attempts++
 		return false
 	})
 
 	resets := 0
 	b := NewMockBackoff(func() {
-		resets += 1
+		resets++
 	}, func() time.Duration {
 		return 0 * time.Millisecond
 	})
 
 	w := NewWatcher(m, b)
-	w.Watch()
+	w.Start()
 
 	a1 := attempts
 	<-time.After(50 * time.Millisecond)
-	w.ShouldRetry <- true
+	w.Restart()
 
 	a2 := attempts
 	<-time.After(50 * time.Millisecond)
-	w.ShouldRetry <- true
+	w.Restart()
 
 	a3 := attempts
 	<-time.After(50 * time.Millisecond)
-	w.ShouldRetry <- true
+	w.Restart()
 
 	w.Stop()
 	c.Assert(resets, Equals, 1)
@@ -139,7 +146,7 @@ func (s *WatchdogSuite) TestShouldRetryIgnored(c *C) {
 func (s *WatchdogSuite) TestShouldRetryResetsBackoff(c *C) {
 	attempts1 := 0
 	m := NewMockRetry(func() bool {
-		attempts1 += 1
+		attempts1++
 		return (attempts1 % 20) == 0
 	})
 
@@ -147,18 +154,18 @@ func (s *WatchdogSuite) TestShouldRetryResetsBackoff(c *C) {
 	b := NewMockBackoff(func() {
 		attempts2 = 0
 	}, func() time.Duration {
-		attempts2 += 1
+		attempts2++
 		return 0 * time.Millisecond
 	})
 
 	w := NewWatcher(m, b)
-	w.Watch()
-	<-w.Success
+	ch := w.Start()
+	<-ch
 	c.Assert(attempts1, Equals, 20)
 	c.Assert(attempts2, Equals, 19)
 
-	w.ShouldRetry <- true
-	<-w.Success
+	w.Restart()
+	<-ch
 	c.Assert(attempts1, Equals, 40)
 	c.Assert(attempts2, Equals, 19)
 }
