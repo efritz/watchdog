@@ -108,14 +108,15 @@ func (s *WatchdogSuite) TestCheck(c *C) {
 	c.Assert(attempts, Equals, 60)
 }
 
-func (s *WatchdogSuite) TestCheckIgnored(c *C) {
+func (s *WatchdogSuite) TestCheckDoesNotResetBackoffDuringWatch(c *C) {
+	resets := 0
 	attempts := 0
+
 	m := NewMockRetry(func() bool {
 		attempts++
 		return false
 	})
 
-	resets := 0
 	b := NewMockBackoff(func() {
 		resets++
 	}, func() time.Duration {
@@ -142,29 +143,88 @@ func (s *WatchdogSuite) TestCheckIgnored(c *C) {
 	c.Assert(a2, Not(Equals), a3)
 }
 
-func (s *WatchdogSuite) TestCheckResetsBackoff(c *C) {
-	attempts1 := 0
+func (s *WatchdogSuite) TestCheckResetsBackoffAfterSuccess(c *C) {
+	attempts := 0
+	backoffs := 0
+
 	m := NewMockRetry(func() bool {
-		attempts1++
-		return (attempts1 % 20) == 0
+		attempts++
+		return (attempts % 20) == 0
 	})
 
-	attempts2 := 0
 	b := NewMockBackoff(func() {
-		attempts2 = 0
+		backoffs = 0
 	}, func() time.Duration {
-		attempts2++
+		backoffs++
 		return 0 * time.Millisecond
 	})
 
 	w := NewWatcher(m, b)
 	ch := w.Start()
 	<-ch
-	c.Assert(attempts1, Equals, 20)
-	c.Assert(attempts2, Equals, 19)
+	c.Assert(attempts, Equals, 20)
+	c.Assert(backoffs, Equals, 19)
 
 	w.Check()
 	<-ch
-	c.Assert(attempts1, Equals, 40)
-	c.Assert(attempts2, Equals, 19)
+	c.Assert(attempts, Equals, 40)
+	c.Assert(backoffs, Equals, 19)
+}
+
+func (s *WatchdogSuite) TestCheckDoesNotInterruptIntervalDuringWatch(c *C) {
+	resets := 0
+	checks := 0
+
+	attempts := 0
+	backoffs := 0
+	stopChan := make(chan struct{})
+
+	m := NewMockRetry(func() bool {
+		attempts++
+		if (attempts % 10) != 0 {
+			return false
+		}
+
+		close(stopChan)
+		return true
+	})
+
+	b := NewMockBackoff(func() {
+		resets++
+	}, func() time.Duration {
+		backoffs++
+		return 25 * time.Millisecond
+	})
+
+	w := NewWatcher(m, b)
+	ch := w.Start()
+
+	// Start a goroutine that hammers the check method on this watcher
+	// while it's executing the invocation loop. If implemented incorrectly,
+	// either the backoff should be called repeatedly, or the function should
+	// never be called because of increasing wait intervals.
+
+	go func() {
+		for {
+			select {
+			case <-stopChan:
+				return
+
+			default:
+				checks++
+				w.Check()
+			}
+		}
+	}()
+
+	<-ch
+	w.Stop()
+
+	// Ensure we hit our attempt goals
+	c.Assert(resets, Equals, 1)
+	c.Assert(attempts, Equals, 10)
+	c.Assert(backoffs, Equals, 9)
+
+	// Make sure our check got through
+	c.Assert(checks > 1000, Equals, true)
 }

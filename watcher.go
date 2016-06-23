@@ -99,6 +99,24 @@ func (w *Watcher) Start() <-chan struct{} {
 // the function halts because an invocation of the retry function
 // was successful.
 func (w *Watcher) invocationLoop() bool {
+	ch := make(chan struct{})
+	defer close(ch)
+
+	// Spawn a goroutine that will simply eat values off of the
+	// restart channel so that we don't have to muck up the main
+	// loop below. The follow goroutine will be cleaned up when
+	// we close the channel ch created above.
+
+	go func() {
+		for {
+			select {
+			case <-ch:
+				return
+			case <-w.restart:
+			}
+		}
+	}()
+
 	for {
 		interval := w.backoff.NextInterval()
 
@@ -108,7 +126,6 @@ func (w *Watcher) invocationLoop() bool {
 				return true
 			}
 
-		case <-w.restart:
 		case <-w.quit:
 			return false
 		}
