@@ -16,6 +16,14 @@ type Retry interface {
 	Retry() bool
 }
 
+// RetryFunc is a function that can be applied as a Retry.
+type RetryFunc func() bool
+
+// Retry will execute the RetryFunc.
+func (f RetryFunc) Retry() bool {
+	return f()
+}
+
 // Watcher invokes a Retry function until success.
 type Watcher struct {
 	retry    Retry
