@@ -42,6 +42,15 @@ type Watcher struct {
 	restart chan struct{}
 }
 
+// BlockUntilSuccess creates a watcher that fires until the given retry
+// function returns a success, then disables the watcher. This function
+// is synchronous.
+func BlockUntilSuccess(retry Retry, backoff Backoff) {
+	watcher := NewWatcher(retry, backoff)
+	<-watcher.Start()
+	watcher.Stop()
+}
+
 // NewWatcher creates a new watcher with the given retry function and
 // interval generator.
 func NewWatcher(retry Retry, backoff Backoff) *Watcher {
