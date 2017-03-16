@@ -144,7 +144,7 @@ func (w *Watcher) invocationLoop() bool {
 // Stop kills the watcher routine so that no future calls to the
 // retry function are attempted.
 func (w *Watcher) Stop() {
-	w.quit <- struct{}{}
+	close(w.quit)
 
 }
 
