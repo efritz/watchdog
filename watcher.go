@@ -20,6 +20,7 @@ func (f RetryFunc) Retry() bool {
 type Watcher struct {
 	retry    Retry
 	backoff  backoff.Backoff
+	clock    clock
 	watching bool
 
 	// The channel on which a quit signal can be sent. The watcher will
@@ -46,9 +47,14 @@ func BlockUntilSuccess(retry Retry, backoff backoff.Backoff) {
 // NewWatcher creates a new watcher with the given retry function and
 // interval generator.
 func NewWatcher(retry Retry, backoff backoff.Backoff) *Watcher {
+	return newWatcherWithClock(retry, backoff, &realClock{})
+}
+
+func newWatcherWithClock(retry Retry, backoff backoff.Backoff, clock clock) *Watcher {
 	return &Watcher{
 		retry:    retry,
 		backoff:  backoff,
+		clock:    clock,
 		watching: false,
 
 		quit:    make(chan struct{}),
@@ -130,7 +136,7 @@ func (w *Watcher) invocationLoop() bool {
 		interval := w.backoff.NextInterval()
 
 		select {
-		case <-time.After(interval):
+		case <-w.clock.After(interval):
 			if w.retry.Retry() {
 				return true
 			}

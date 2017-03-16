@@ -7,224 +7,341 @@ import (
 )
 
 func (s *WatchdogSuite) TestSuccess(c *C) {
-	attempts := 0
-	m := NewMockRetry(func() bool {
-		attempts++
-		return attempts >= 20
-	})
+	var (
+		attempts  = 0
+		clockChan = make(chan time.Time)
+		clock     = newMockClock(clockChan)
+	)
 
-	w := NewWatcher(m, NewConstantBackoff(0))
-	<-w.Start()
+	defer close(clockChan)
 
+	watcher := newWatcherWithClock(
+		RetryFunc(func() bool {
+			attempts++
+			return attempts >= 20
+		}),
+		&mockBackoff{},
+		clock,
+	)
+
+	ch := watcher.Start()
+	defer watcher.Stop()
+
+	for i := 1; i < 20; i++ {
+		clockChan <- time.Now()
+	}
+
+	<-ch
 	c.Assert(attempts, Equals, 20)
 }
 
 func (s *WatchdogSuite) TestWatcherRespectsBackoff(c *C) {
-	attempts := 0
-	m := NewMockRetry(func() bool {
-		attempts++
-		return attempts >= 4
-	})
+	var (
+		attempts  = 0
+		clockChan = make(chan time.Time)
+		clock     = newMockClock(clockChan)
+	)
 
-	w := NewWatcher(m, NewConstantBackoff(time.Millisecond*200))
-	ch := w.Start()
+	defer close(clockChan)
 
-	select {
-	case <-time.After(time.Millisecond * 500):
-	case <-ch:
-		c.Fatalf("Success happened too quickly.")
+	watcher := newWatcherWithClock(
+		RetryFunc(func() bool {
+			attempts++
+			return attempts >= 4
+		}),
+		&mockBackoff{},
+		clock,
+	)
+
+	ch := watcher.Start()
+	defer watcher.Stop()
+
+	for i := 1; i < 4; i++ {
+		clockChan <- time.Now()
 	}
+
+	<-ch
+	c.Assert(attempts, Equals, 4)
+	c.Assert(len(clock.args), Equals, 3)
 }
 
 func (s *WatchdogSuite) TestStop(c *C) {
-	attempts := 0
-	m := NewMockRetry(func() bool {
-		attempts++
-		return false
-	})
+	var (
+		attempts  = 0
+		clockChan = make(chan time.Time)
+		clock     = newMockClock(clockChan)
+		sync1     = make(chan struct{})
+		sync2     = make(chan struct{})
+	)
 
-	w := NewWatcher(m, NewConstantBackoff(0))
-	w.Start()
+	defer close(sync1)
+	defer close(sync2)
+	defer close(clockChan)
 
-	<-time.After(50 * time.Millisecond)
-	a1 := attempts
+	watcher := newWatcherWithClock(
+		RetryFunc(func() bool {
+			attempts++
+			if attempts == 200 {
+				sync1 <- struct{}{}
+				<-sync2
+			}
+			return false
+		}),
+		&mockBackoff{},
+		clock,
+	)
 
-	<-time.After(50 * time.Millisecond)
-	w.Stop()
+	ch := watcher.Start()
 
-	a2 := attempts
-	<-time.After(50 * time.Millisecond)
-	a3 := attempts
+	for i := 1; i < 200; i++ {
+		clockChan <- time.Now()
+	}
 
-	c.Assert(a1, Not(Equals), a2)
-	c.Assert(a2, Equals, a3)
-}
+	<-sync1
+	watcher.Stop()
+	sync2 <- struct{}{}
 
-func (s *WatchdogSuite) TestStopAfterSuccess(c *C) {
-	attempts := 0
-	m := NewMockRetry(func() bool {
-		attempts++
-		return true
-	})
+	select {
+	case _, ok := <-ch:
+		c.Assert(ok, Equals, false)
+	case <-time.After(time.Second):
+		c.Errorf("expected success channel to be closed")
+	}
 
-	w := NewWatcher(m, NewConstantBackoff(0))
-	<-w.Start()
-	w.Stop()
-}
-
-func (s *WatchdogSuite) TestStartAfterStop(c *C) {
-	attempts := 0
-	m := NewMockRetry(func() bool {
-		attempts++
-		return true
-	})
-
-	w := NewWatcher(m, NewConstantBackoff(0))
-	<-w.Start()
-	w.Stop()
-
-	<-w.Start()
-	w.Stop()
+	c.Assert(attempts, Equals, 200)
+	c.Assert(len(clock.args), Equals, 200)
 }
 
 func (s *WatchdogSuite) TestCheck(c *C) {
-	attempts := 0
-	m := NewMockRetry(func() bool {
-		attempts++
-		return (attempts % 20) == 0
-	})
+	var (
+		attempts  = 0
+		clockChan = make(chan time.Time)
+		clock     = newMockClock(clockChan)
+	)
 
-	w := NewWatcher(m, NewConstantBackoff(0))
-	ch := w.Start()
+	defer close(clockChan)
+
+	watcher := newWatcherWithClock(
+		RetryFunc(func() bool {
+			attempts++
+			return (attempts % 20) == 0
+		}),
+		&mockBackoff{},
+		clock,
+	)
+
+	ch := watcher.Start()
+	defer watcher.Stop()
+
+	for i := 1; i < 20; i++ {
+		clockChan <- time.Now()
+	}
+
 	<-ch
 	c.Assert(attempts, Equals, 20)
+	watcher.Check()
 
-	w.Check()
+	for i := 1; i < 20; i++ {
+		clockChan <- time.Now()
+	}
+
 	<-ch
 	c.Assert(attempts, Equals, 40)
+	watcher.Check()
 
-	w.Check()
+	for i := 1; i < 20; i++ {
+		clockChan <- time.Now()
+	}
+
 	<-ch
 	c.Assert(attempts, Equals, 60)
 }
 
 func (s *WatchdogSuite) TestCheckDoesNotResetBackoffDuringWatch(c *C) {
-	resets := 0
-	attempts := 0
+	var (
+		attempts  = 0
+		backoff   = &mockBackoff{}
+		clockChan = make(chan time.Time)
+		clock     = newMockClock(clockChan)
+		sync1     = make(chan struct{})
+		sync2     = make(chan struct{})
+	)
 
-	m := NewMockRetry(func() bool {
-		attempts++
-		return false
-	})
+	defer close(sync1)
+	defer close(sync2)
+	defer close(clockChan)
 
-	b := NewMockBackoff(func() {
-		resets++
-	}, func() time.Duration {
-		return 0 * time.Millisecond
-	})
+	watcher := newWatcherWithClock(
+		RetryFunc(func() bool {
+			attempts++
+			if attempts == 200 {
+				sync1 <- struct{}{}
+				<-sync2
+			}
+			return false
+		}),
+		backoff,
+		clock,
+	)
 
-	w := NewWatcher(m, b)
-	w.Start()
+	ch := watcher.Start()
 
-	a1 := attempts
-	<-time.After(50 * time.Millisecond)
-	w.Check()
+	for i := 1; i < 200; i++ {
+		watcher.Check()
+		clockChan <- time.Now()
+	}
 
-	a2 := attempts
-	<-time.After(50 * time.Millisecond)
-	w.Check()
+	<-sync1
+	watcher.Stop()
+	sync2 <- struct{}{}
 
-	a3 := attempts
-	<-time.After(50 * time.Millisecond)
-	w.Stop()
+	select {
+	case _, ok := <-ch:
+		c.Assert(ok, Equals, false)
+	case <-time.After(time.Second):
+		c.Errorf("expected success channel to be closed")
+	}
 
-	c.Assert(resets, Equals, 1)
-	c.Assert(a1, Not(Equals), a2)
-	c.Assert(a2, Not(Equals), a3)
+	c.Assert(attempts, Equals, 200)
+	c.Assert(backoff.resets, Equals, 1)
+	c.Assert(len(clock.args), Equals, 200)
 }
 
 func (s *WatchdogSuite) TestCheckResetsBackoffAfterSuccess(c *C) {
-	attempts := 0
-	backoffs := 0
+	var (
+		attempts  = 0
+		backoff   = &mockBackoff{}
+		clockChan = make(chan time.Time)
+		clock     = newMockClock(clockChan)
+		sync1     = make(chan struct{})
+		sync2     = make(chan struct{})
+	)
 
-	m := NewMockRetry(func() bool {
-		attempts++
-		return (attempts % 20) == 0
-	})
+	defer close(sync1)
+	defer close(sync2)
+	defer close(clockChan)
 
-	b := NewMockBackoff(func() {
-		backoffs = 0
-	}, func() time.Duration {
-		backoffs++
-		return 0 * time.Millisecond
-	})
+	watcher := newWatcherWithClock(
+		RetryFunc(func() bool {
+			attempts++
+			return (attempts % 20) == 0
+		}),
+		backoff,
+		clock,
+	)
 
-	w := NewWatcher(m, b)
-	ch := w.Start()
+	ch := watcher.Start()
+	defer watcher.Stop()
+
+	for i := 1; i < 20; i++ {
+		clockChan <- time.Now()
+	}
+
 	<-ch
 	c.Assert(attempts, Equals, 20)
-	c.Assert(backoffs, Equals, 19)
+	c.Assert(backoff.intervals, Equals, 19)
 
-	w.Check()
-	<-ch
-	c.Assert(attempts, Equals, 40)
-	c.Assert(backoffs, Equals, 19)
+	for j := 1; j <= 20; j++ {
+		watcher.Check()
+
+		for i := 1; i < 20; i++ {
+			clockChan <- time.Now()
+		}
+
+		<-ch
+		c.Assert(attempts, Equals, (j+1)*20)
+		c.Assert(backoff.intervals, Equals, (j+1)*19)
+	}
 }
 
 func (s *WatchdogSuite) TestCheckDoesNotInterruptIntervalDuringWatch(c *C) {
-	resets := 0
-	checks := 0
+	var (
+		attempts  = 0
+		backoff   = &mockBackoff{}
+		clockChan = make(chan time.Time)
+		clock     = newMockClock(clockChan)
+		sync1     = make(chan struct{})
+		sync2     = make(chan struct{})
+	)
 
-	attempts := 0
-	backoffs := 0
-	stopChan := make(chan struct{})
+	defer close(sync1)
+	defer close(sync2)
+	defer close(clockChan)
 
-	m := NewMockRetry(func() bool {
-		attempts++
-		if (attempts % 10) != 0 {
-			return false
+	watcher := newWatcherWithClock(
+		RetryFunc(func() bool {
+			attempts++
+			return (attempts % 20) == 0
+		}),
+		backoff,
+		clock,
+	)
+
+	ch := watcher.Start()
+	defer watcher.Stop()
+
+	for i := 1; i < 20; i++ {
+		watcher.Check()
+		clockChan <- time.Now()
+	}
+
+	<-ch
+	c.Assert(attempts, Equals, 20)
+	c.Assert(backoff.resets, Equals, 1)
+
+	for j := 1; j <= 20; j++ {
+		watcher.Check()
+
+		for i := 1; i < 20; i++ {
+			watcher.Check()
+			clockChan <- time.Now()
 		}
 
-		close(stopChan)
-		return true
-	})
+		<-ch
+		c.Assert(attempts, Equals, (j+1)*20)
+		c.Assert(backoff.resets, Equals, j+1)
+	}
+}
 
-	b := NewMockBackoff(func() {
-		resets++
-	}, func() time.Duration {
-		backoffs++
-		return 25 * time.Millisecond
-	})
+//
+//
+//
 
-	w := NewWatcher(m, b)
-	ch := w.Start()
+type mockClock struct {
+	ch   <-chan time.Time
+	args []time.Duration
+}
 
-	// Start a goroutine that hammers the check method on this watcher
-	// while it's executing the invocation loop. If implemented incorrectly,
-	// either the backoff should be called repeatedly, or the function should
-	// never be called because of increasing wait intervals.
+func newMockClock(ch chan time.Time) *mockClock {
+	return &mockClock{
+		ch:   ch,
+		args: []time.Duration{},
+	}
+}
+
+func (m *mockClock) After(duration time.Duration) <-chan time.Time {
+	ch := make(chan time.Time)
+	m.args = append(m.args, duration)
 
 	go func() {
-		for {
-			select {
-			case <-stopChan:
-				return
-
-			default:
-				checks++
-				w.Check()
-			}
+		if t, ok := <-m.ch; ok {
+			ch <- t
 		}
 	}()
 
-	<-ch
-	w.Stop()
+	return ch
+}
 
-	// Ensure we hit our attempt goals
-	c.Assert(resets, Equals, 1)
-	c.Assert(attempts, Equals, 10)
-	c.Assert(backoffs, Equals, 9)
+type mockBackoff struct {
+	resets    int
+	intervals int
+}
 
-	// Make sure our check got through
-	c.Assert(checks > 1000, Equals, true)
+func (m *mockBackoff) Reset() {
+	m.resets++
+}
+
+func (m *mockBackoff) NextInterval() time.Duration {
+	m.intervals++
+	return 0
 }
