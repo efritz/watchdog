@@ -1,12 +1,16 @@
 package watchdog
 
 import (
+	"testing"
 	"time"
 
-	. "gopkg.in/check.v1"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 )
 
-func (s *WatchdogSuite) TestSuccess(c *C) {
+type WatcherSuite struct{}
+
+func (s *WatcherSuite) TestSuccess(t *testing.T) {
 	var (
 		attempts  = 0
 		clockChan = make(chan time.Time)
@@ -32,10 +36,10 @@ func (s *WatchdogSuite) TestSuccess(c *C) {
 	}
 
 	<-ch
-	c.Assert(attempts, Equals, 20)
+	Expect(attempts).To(Equal(20))
 }
 
-func (s *WatchdogSuite) TestWatcherRespectsBackoff(c *C) {
+func (s *WatcherSuite) TestWatcherRespectsBackoff(t *testing.T) {
 	var (
 		attempts  = 0
 		clockChan = make(chan time.Time)
@@ -61,11 +65,11 @@ func (s *WatchdogSuite) TestWatcherRespectsBackoff(c *C) {
 	}
 
 	<-ch
-	c.Assert(attempts, Equals, 4)
-	c.Assert(len(clock.args), Equals, 3)
+	Expect(attempts).To(Equal(4))
+	Expect(clock.args).To(HaveLen(3))
 }
 
-func (s *WatchdogSuite) TestStop(c *C) {
+func (s *WatcherSuite) TestStop(t *testing.T) {
 	var (
 		attempts  = 0
 		clockChan = make(chan time.Time)
@@ -101,18 +105,12 @@ func (s *WatchdogSuite) TestStop(c *C) {
 	watcher.Stop()
 	sync2 <- struct{}{}
 
-	select {
-	case _, ok := <-ch:
-		c.Assert(ok, Equals, false)
-	case <-time.After(time.Second):
-		c.Errorf("expected success channel to be closed")
-	}
-
-	c.Assert(attempts, Equals, 200)
-	c.Assert(len(clock.args), Equals, 200)
+	Expect(ch).To(BeClosedTimeout())
+	Expect(attempts).To(Equal(200))
+	Expect(clock.args).To(HaveLen(200))
 }
 
-func (s *WatchdogSuite) TestCheck(c *C) {
+func (s *WatcherSuite) TestCheck(t *testing.T) {
 	var (
 		attempts  = 0
 		clockChan = make(chan time.Time)
@@ -138,7 +136,7 @@ func (s *WatchdogSuite) TestCheck(c *C) {
 	}
 
 	<-ch
-	c.Assert(attempts, Equals, 20)
+	Expect(attempts).To(Equal(20))
 	watcher.Check()
 
 	for i := 1; i < 20; i++ {
@@ -146,7 +144,7 @@ func (s *WatchdogSuite) TestCheck(c *C) {
 	}
 
 	<-ch
-	c.Assert(attempts, Equals, 40)
+	Expect(attempts).To(Equal(40))
 	watcher.Check()
 
 	for i := 1; i < 20; i++ {
@@ -154,10 +152,10 @@ func (s *WatchdogSuite) TestCheck(c *C) {
 	}
 
 	<-ch
-	c.Assert(attempts, Equals, 60)
+	Expect(attempts).To(Equal(60))
 }
 
-func (s *WatchdogSuite) TestCheckDoesNotResetBackoffDuringWatch(c *C) {
+func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t *testing.T) {
 	var (
 		attempts  = 0
 		backoff   = &mockBackoff{}
@@ -195,19 +193,13 @@ func (s *WatchdogSuite) TestCheckDoesNotResetBackoffDuringWatch(c *C) {
 	watcher.Stop()
 	sync2 <- struct{}{}
 
-	select {
-	case _, ok := <-ch:
-		c.Assert(ok, Equals, false)
-	case <-time.After(time.Second):
-		c.Errorf("expected success channel to be closed")
-	}
-
-	c.Assert(attempts, Equals, 200)
-	c.Assert(backoff.resets, Equals, 1)
-	c.Assert(len(clock.args), Equals, 200)
+	Expect(ch).To(BeClosedTimeout())
+	Expect(attempts).To(Equal(200))
+	Expect(backoff.resets).To(Equal(1))
+	Expect(clock.args).To(HaveLen(200))
 }
 
-func (s *WatchdogSuite) TestCheckResetsBackoffAfterSuccess(c *C) {
+func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t *testing.T) {
 	var (
 		attempts  = 0
 		backoff   = &mockBackoff{}
@@ -238,8 +230,8 @@ func (s *WatchdogSuite) TestCheckResetsBackoffAfterSuccess(c *C) {
 	}
 
 	<-ch
-	c.Assert(attempts, Equals, 20)
-	c.Assert(backoff.intervals, Equals, 19)
+	Expect(attempts).To(Equal(20))
+	Expect(backoff.intervals).To(Equal(19))
 
 	for j := 1; j <= 20; j++ {
 		watcher.Check()
@@ -249,12 +241,12 @@ func (s *WatchdogSuite) TestCheckResetsBackoffAfterSuccess(c *C) {
 		}
 
 		<-ch
-		c.Assert(attempts, Equals, (j+1)*20)
-		c.Assert(backoff.intervals, Equals, (j+1)*19)
+		Expect(attempts).To(Equal((j + 1) * 20))
+		Expect(backoff.intervals).To(Equal((j + 1) * 19))
 	}
 }
 
-func (s *WatchdogSuite) TestCheckDoesNotInterruptIntervalDuringWatch(c *C) {
+func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t *testing.T) {
 	var (
 		attempts  = 0
 		backoff   = &mockBackoff{}
@@ -286,8 +278,8 @@ func (s *WatchdogSuite) TestCheckDoesNotInterruptIntervalDuringWatch(c *C) {
 	}
 
 	<-ch
-	c.Assert(attempts, Equals, 20)
-	c.Assert(backoff.resets, Equals, 1)
+	Expect(attempts).To(Equal(20))
+	Expect(backoff.resets).To(Equal(1))
 
 	for j := 1; j <= 20; j++ {
 		watcher.Check()
@@ -298,8 +290,8 @@ func (s *WatchdogSuite) TestCheckDoesNotInterruptIntervalDuringWatch(c *C) {
 		}
 
 		<-ch
-		c.Assert(attempts, Equals, (j+1)*20)
-		c.Assert(backoff.resets, Equals, j+1)
+		Expect(attempts).To(Equal((j + 1) * 20))
+		Expect(backoff.resets).To(Equal(j + 1))
 	}
 }
 
@@ -344,4 +336,33 @@ func (m *mockBackoff) Reset() {
 func (m *mockBackoff) NextInterval() time.Duration {
 	m.intervals++
 	return 0
+}
+
+//
+//
+//
+
+type BeClosedTimeoutMatcher struct{}
+
+func (matcher *BeClosedTimeoutMatcher) Match(actual interface{}) (success bool, err error) {
+	ch := actual.(<-chan struct{})
+
+	select {
+	case _, ok := <-ch:
+		return !ok, nil
+	case <-time.After(time.Second):
+		return false, nil
+	}
+}
+
+func BeClosedTimeout() *BeClosedTimeoutMatcher {
+	return &BeClosedTimeoutMatcher{}
+}
+
+func (matcher *BeClosedTimeoutMatcher) FailureMessage(actual interface{}) (message string) {
+	return format.Message(actual, "to be closed before timeout")
+}
+
+func (matcher *BeClosedTimeoutMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	return format.Message(actual, "to be open")
 }

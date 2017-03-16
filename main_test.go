@@ -3,12 +3,15 @@ package watchdog
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/aphistic/sweet"
+	. "github.com/onsi/gomega"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
+func Test(t *testing.T) {
+	sweet.T(func(s *sweet.S) {
+		RegisterFailHandler(sweet.GomegaFail)
 
-type WatchdogSuite struct{}
-
-var _ = Suite(&WatchdogSuite{})
+		s.RunSuite(t, &WatcherSuite{})
+		s.RunSuite(t, &ConvenienceSuite{})
+	})
+}

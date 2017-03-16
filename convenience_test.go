@@ -1,9 +1,15 @@
 package watchdog
 
-import . "gopkg.in/check.v1"
-import "time"
+import (
+	"testing"
+	"time"
 
-func (s *WatchdogSuite) TestBlockUntilSuccess(c *C) {
+	. "github.com/onsi/gomega"
+)
+
+type ConvenienceSuite struct{}
+
+func (s *ConvenienceSuite) TestBlockUntilSuccess(t *testing.T) {
 	attempts := 0
 
 	BlockUntilSuccess(RetryFunc(func() bool {
@@ -11,10 +17,10 @@ func (s *WatchdogSuite) TestBlockUntilSuccess(c *C) {
 		return attempts == 2500
 	}), &mockBackoff{})
 
-	c.Assert(attempts, Equals, 2500)
+	Expect(attempts).To(Equal(2500))
 }
 
-func (s *WatchdogSuite) TestBlockUntilSuccessTimeoutSuccess(c *C) {
+func (s *ConvenienceSuite) TestBlockUntilSuccessTimeoutSuccess(t *testing.T) {
 	attempts := 0
 
 	err := BlockUntilSuccessTimeout(RetryFunc(func() bool {
@@ -22,14 +28,14 @@ func (s *WatchdogSuite) TestBlockUntilSuccessTimeoutSuccess(c *C) {
 		return attempts == 2500
 	}), &mockBackoff{}, time.Second)
 
-	c.Assert(err, IsNil)
-	c.Assert(attempts, Equals, 2500)
+	Expect(err).To(BeNil())
+	Expect(attempts).To(Equal(2500))
 }
 
-func (s *WatchdogSuite) TestBlockUntilSuccessTimeoutFailure(c *C) {
+func (s *ConvenienceSuite) TestBlockUntilSuccessTimeoutFailure(t *testing.T) {
 	err := BlockUntilSuccessTimeout(RetryFunc(func() bool {
 		return false
 	}), &mockBackoff{}, time.Millisecond*10)
 
-	c.Assert(err, Not(IsNil))
+	Expect(err).NotTo(BeNil())
 }
