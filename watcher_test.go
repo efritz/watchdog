@@ -5,7 +5,6 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/format"
 )
 
 type WatcherSuite struct{}
@@ -105,7 +104,7 @@ func (s *WatcherSuite) TestStop(t *testing.T) {
 	watcher.Stop()
 	sync2 <- struct{}{}
 
-	Expect(ch).To(BeClosedTimeout())
+	Eventually(ch).Should(BeClosed())
 	Expect(attempts).To(Equal(200))
 	Expect(clock.args).To(HaveLen(200))
 }
@@ -193,7 +192,7 @@ func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t *testing.T) {
 	watcher.Stop()
 	sync2 <- struct{}{}
 
-	Expect(ch).To(BeClosedTimeout())
+	Eventually(ch).Should(BeClosed())
 	Expect(attempts).To(Equal(200))
 	Expect(backoff.resets).To(Equal(1))
 	Expect(clock.args).To(HaveLen(200))
@@ -336,33 +335,4 @@ func (m *mockBackoff) Reset() {
 func (m *mockBackoff) NextInterval() time.Duration {
 	m.intervals++
 	return 0
-}
-
-//
-//
-//
-
-type BeClosedTimeoutMatcher struct{}
-
-func (matcher *BeClosedTimeoutMatcher) Match(actual interface{}) (success bool, err error) {
-	ch := actual.(<-chan struct{})
-
-	select {
-	case _, ok := <-ch:
-		return !ok, nil
-	case <-time.After(time.Second):
-		return false, nil
-	}
-}
-
-func BeClosedTimeout() *BeClosedTimeoutMatcher {
-	return &BeClosedTimeoutMatcher{}
-}
-
-func (matcher *BeClosedTimeoutMatcher) FailureMessage(actual interface{}) (message string) {
-	return format.Message(actual, "to be closed before timeout")
-}
-
-func (matcher *BeClosedTimeoutMatcher) NegatedFailureMessage(actual interface{}) (message string) {
-	return format.Message(actual, "to be open")
 }
