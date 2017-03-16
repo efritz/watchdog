@@ -2,47 +2,25 @@ package watchdog
 
 import "github.com/efritz/backoff"
 
-// Retry is the interface to something which are invoked until success.
-type Retry interface {
-	// Some critical action, which should return true on success.
-	Retry() bool
-}
+type (
+	// Watcher invokes a Retry function until success.
+	Watcher struct {
+		retry   Retry
+		backoff backoff.Backoff
+		clock   clock
 
-// RetryFunc is a function that can be applied as a Retry.
-type RetryFunc func() bool
+		// The channel on which a quit signal can be sent. The watcher will
+		// shutdown its goroutines after receiving a value on this channel.
+		quit chan struct{}
 
-// Retry will execute the RetryFunc.
-func (f RetryFunc) Retry() bool {
-	return f()
-}
-
-// Watcher invokes a Retry function until success.
-type Watcher struct {
-	retry    Retry
-	backoff  backoff.Backoff
-	clock    clock
-	watching bool
-
-	// The channel on which a quit signal can be sent. The watcher will
-	// shutdown its goroutines after receiving a value on this channel.
-	quit chan struct{}
-
-	// The channel on which a restart request signal is sent. Once a
-	// value is received on this channel, the watcher will execute the
-	// retry function until success (or a quit signal is received). If
-	// the watcher is already attempting to retry, any values received
-	// on this channel will be ignored.
-	restart chan struct{}
-}
-
-// BlockUntilSuccess creates a watcher that fires until the given retry
-// function returns a success, then disables the watcher. This function
-// is synchronous.
-func BlockUntilSuccess(retry Retry, backoff backoff.Backoff) {
-	watcher := NewWatcher(retry, backoff)
-	<-watcher.Start()
-	watcher.Stop()
-}
+		// The channel on which a restart request signal is sent. Once a
+		// value is received on this channel, the watcher will execute the
+		// retry function until success (or a quit signal is received). If
+		// the watcher is already attempting to retry, any values received
+		// on this channel will be ignored.
+		restart chan struct{}
+	}
+)
 
 // NewWatcher creates a new watcher with the given retry function and
 // interval generator.
@@ -52,10 +30,9 @@ func NewWatcher(retry Retry, backoff backoff.Backoff) *Watcher {
 
 func newWatcherWithClock(retry Retry, backoff backoff.Backoff, clock clock) *Watcher {
 	return &Watcher{
-		retry:    retry,
-		backoff:  backoff,
-		clock:    clock,
-		watching: false,
+		retry:   retry,
+		backoff: backoff,
+		clock:   clock,
 
 		quit:    make(chan struct{}),
 		restart: make(chan struct{}),
@@ -73,12 +50,7 @@ func (w *Watcher) Start() <-chan struct{} {
 	success := make(chan struct{})
 
 	go func() {
-		w.watching = true
-
-		defer func() {
-			w.watching = false
-			close(success)
-		}()
+		defer close(success)
 
 		for {
 			// Immediately try to invoke the function. If this fails, then
@@ -148,20 +120,16 @@ func (w *Watcher) invocationLoop() bool {
 }
 
 // Stop kills the watcher routine so that no future calls to the
-// retry function are attempted.
+// retry function are attempted. This method must not be called
+// twice.
 func (w *Watcher) Stop() {
 	close(w.quit)
-
 }
 
 // Check will request the watcher to re-invoke the retry function
 // until success. If the watcher is already in a retry cycle, then
-// this function has no observable effect. This method does not do
-// anything if the Stop method has been called.
+// this function has no observable effect. This method must not be
+// called after Stop.
 func (w *Watcher) Check() {
-	if !w.watching {
-		return
-	}
-
 	w.restart <- struct{}{}
 }
