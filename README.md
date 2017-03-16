@@ -2,7 +2,8 @@
 
 [![GoDoc](https://godoc.org/github.com/efritz/watchdog?status.svg)](https://godoc.org/github.com/efritz/watchdog)
 [![Build Status](https://secure.travis-ci.org/efritz/watchdog.png)](http://travis-ci.org/efritz/watchdog)
-[![codecov.io](http://codecov.io/github/efritz/watchdog/coverage.svg?branch=master)](http://codecov.io/github/efritz/watchdog?branch=master)
+[![Code Coverage](http://codecov.io/github/efritz/watchdog/coverage.svg?branch=master)](http://codecov.io/github/efritz/watchdog?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/efritz/watchdog)](https://goreportcard.com/report/github.com/efritz/watchdog)
 
 Go library for automatic service reconnection.
 
