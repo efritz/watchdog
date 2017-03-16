@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efritz/backoff"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -39,15 +41,15 @@ type MockBackoff struct {
 	f2 func() time.Duration
 }
 
-func NewMockBackoff(f1 func(), f2 func() time.Duration) Backoff {
 	return &MockBackoff{
+func NewMockBackoff(f1 func(), f2 func() time.Duration) backoff.Backoff {
 		f1: f1,
 		f2: f2,
 	}
 }
 
-func NewConstantBackoff(duration time.Duration) Backoff {
 	return NewMockBackoff(func() {}, func() time.Duration {
+func NewConstantBackoff(duration time.Duration) backoff.Backoff {
 		return duration
 	})
 }

@@ -1,14 +1,6 @@
 package watchdog
 
-import (
-	"time"
-
-	"github.com/efritz/backoff"
-)
-
-// Backoff is the interface to a backoff interval generator. See the
-// backoff dependency for details.
-type Backoff backoff.Backoff
+import "github.com/efritz/backoff"
 
 // Retry is the interface to something which are invoked until success.
 type Retry interface {
@@ -27,7 +19,7 @@ func (f RetryFunc) Retry() bool {
 // Watcher invokes a Retry function until success.
 type Watcher struct {
 	retry    Retry
-	backoff  Backoff
+	backoff  backoff.Backoff
 	watching bool
 
 	// The channel on which a quit signal can be sent. The watcher will
@@ -45,7 +37,7 @@ type Watcher struct {
 // BlockUntilSuccess creates a watcher that fires until the given retry
 // function returns a success, then disables the watcher. This function
 // is synchronous.
-func BlockUntilSuccess(retry Retry, backoff Backoff) {
+func BlockUntilSuccess(retry Retry, backoff backoff.Backoff) {
 	watcher := NewWatcher(retry, backoff)
 	<-watcher.Start()
 	watcher.Stop()
@@ -53,7 +45,7 @@ func BlockUntilSuccess(retry Retry, backoff Backoff) {
 
 // NewWatcher creates a new watcher with the given retry function and
 // interval generator.
-func NewWatcher(retry Retry, backoff Backoff) *Watcher {
+func NewWatcher(retry Retry, backoff backoff.Backoff) *Watcher {
 	return &Watcher{
 		retry:    retry,
 		backoff:  backoff,
