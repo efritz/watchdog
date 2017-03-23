@@ -322,17 +322,3 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 
 	return ch
 }
-
-type mockBackoff struct {
-	resets    int
-	intervals int
-}
-
-func (m *mockBackoff) Reset() {
-	m.resets++
-}
-
-func (m *mockBackoff) NextInterval() time.Duration {
-	m.intervals++
-	return 0
-}

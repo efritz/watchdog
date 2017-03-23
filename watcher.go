@@ -83,7 +83,7 @@ func (w *Watcher) Start() <-chan struct{} {
 // We sleep some time (respecting the backoff intervals) in between
 // invocations. We'll read values from the restart channel to keep
 // it clear, but we will not do anything special. Return true when
-// the function halts because an invocation of the retry function
+// the function returns because an invocation of the retry function
 // was successful.
 func (w *Watcher) invocationLoop() bool {
 	ch := make(chan struct{})
