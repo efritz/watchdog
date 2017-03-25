@@ -1,13 +1,16 @@
 package watchdog
 
-import "github.com/efritz/backoff"
+import (
+	"github.com/efritz/backoff"
+	"github.com/efritz/glock"
+)
 
 type (
 	// Watcher invokes a Retry function until success.
 	Watcher struct {
 		retry   Retry
 		backoff backoff.Backoff
-		clock   clock
+		clock   glock.Clock
 
 		// The channel on which a quit signal can be sent. The watcher will
 		// shutdown its goroutines after receiving a value on this channel.
@@ -25,10 +28,10 @@ type (
 // NewWatcher creates a new watcher with the given retry function and
 // interval generator.
 func NewWatcher(retry Retry, backoff backoff.Backoff) *Watcher {
-	return newWatcherWithClock(retry, backoff, &realClock{})
+	return newWatcherWithClock(retry, backoff, glock.NewRealClock())
 }
 
-func newWatcherWithClock(retry Retry, backoff backoff.Backoff, clock clock) *Watcher {
+func newWatcherWithClock(retry Retry, backoff backoff.Backoff, clock glock.Clock) *Watcher {
 	return &Watcher{
 		retry:   retry,
 		backoff: backoff,
