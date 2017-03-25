@@ -74,7 +74,7 @@ func (s *ConvenienceSuite) TestSignal(t *testing.T) {
 	Eventually(ch2).Should(BeClosed())
 }
 
-func (s *ConvenienceSuite) QuitOrTimeoutQuit(t *testing.T) {
+func (s *ConvenienceSuite) TestQuitOrTimeoutQuit(t *testing.T) {
 	ch1 := make(chan struct{})
 	ch2 := QuitOrTimeout(time.Millisecond, ch1)
 	defer close(ch1)
@@ -83,11 +83,11 @@ func (s *ConvenienceSuite) QuitOrTimeoutQuit(t *testing.T) {
 	Eventually(ch2).Should(BeClosed())
 }
 
-func (s *ConvenienceSuite) QuitOrTimeoutTimeout(t *testing.T) {
+func (s *ConvenienceSuite) TestQuitOrTimeoutTimeout(t *testing.T) {
 	ch1 := make(chan struct{})
 	ch2 := QuitOrTimeout(time.Millisecond, ch1)
 
 	Expect(ch2).ShouldNot(Receive())
 	close(ch1)
-	Expect(ch2).To(BeClosed())
+	Eventually(ch2).Should(BeClosed())
 }
