@@ -12,12 +12,9 @@ type WatcherSuite struct{}
 
 func (s *WatcherSuite) TestSuccess(t *testing.T) {
 	var (
-		attempts  = 0
-		afterChan = make(chan time.Time)
-		clock     = glock.NewMockClockWithAfterChan(afterChan)
+		attempts = 0
+		clock    = glock.NewMockClock()
 	)
-
-	defer close(afterChan)
 
 	watcher := newWatcherWithClock(
 		RetryFunc(func() bool {
@@ -32,7 +29,7 @@ func (s *WatcherSuite) TestSuccess(t *testing.T) {
 	defer watcher.Stop()
 
 	for i := 1; i < 20; i++ {
-		afterChan <- time.Now()
+		clock.BlockingAdvance(time.Second)
 	}
 
 	<-ch
@@ -41,12 +38,9 @@ func (s *WatcherSuite) TestSuccess(t *testing.T) {
 
 func (s *WatcherSuite) TestWatcherRespectsBackoff(t *testing.T) {
 	var (
-		attempts  = 0
-		afterChan = make(chan time.Time)
-		clock     = glock.NewMockClockWithAfterChan(afterChan)
+		attempts = 0
+		clock    = glock.NewMockClock()
 	)
-
-	defer close(afterChan)
 
 	watcher := newWatcherWithClock(
 		RetryFunc(func() bool {
@@ -61,7 +55,7 @@ func (s *WatcherSuite) TestWatcherRespectsBackoff(t *testing.T) {
 	defer watcher.Stop()
 
 	for i := 1; i < 4; i++ {
-		afterChan <- time.Now()
+		clock.BlockingAdvance(time.Second)
 	}
 
 	<-ch
@@ -71,16 +65,14 @@ func (s *WatcherSuite) TestWatcherRespectsBackoff(t *testing.T) {
 
 func (s *WatcherSuite) TestStop(t *testing.T) {
 	var (
-		attempts  = 0
-		afterChan = make(chan time.Time)
-		clock     = glock.NewMockClockWithAfterChan(afterChan)
-		sync1     = make(chan struct{})
-		sync2     = make(chan struct{})
+		attempts = 0
+		clock    = glock.NewMockClock()
+		sync1    = make(chan struct{})
+		sync2    = make(chan struct{})
 	)
 
 	defer close(sync1)
 	defer close(sync2)
-	defer close(afterChan)
 
 	watcher := newWatcherWithClock(
 		RetryFunc(func() bool {
@@ -98,7 +90,7 @@ func (s *WatcherSuite) TestStop(t *testing.T) {
 	ch := watcher.Start()
 
 	for i := 1; i < 200; i++ {
-		afterChan <- time.Now()
+		clock.BlockingAdvance(time.Second)
 	}
 
 	<-sync1
@@ -112,12 +104,9 @@ func (s *WatcherSuite) TestStop(t *testing.T) {
 
 func (s *WatcherSuite) TestCheck(t *testing.T) {
 	var (
-		attempts  = 0
-		afterChan = make(chan time.Time)
-		clock     = glock.NewMockClockWithAfterChan(afterChan)
+		attempts = 0
+		clock    = glock.NewMockClock()
 	)
-
-	defer close(afterChan)
 
 	watcher := newWatcherWithClock(
 		RetryFunc(func() bool {
@@ -132,7 +121,7 @@ func (s *WatcherSuite) TestCheck(t *testing.T) {
 	defer watcher.Stop()
 
 	for i := 1; i < 20; i++ {
-		afterChan <- time.Now()
+		clock.BlockingAdvance(time.Second)
 	}
 
 	<-ch
@@ -140,7 +129,7 @@ func (s *WatcherSuite) TestCheck(t *testing.T) {
 	watcher.Check()
 
 	for i := 1; i < 20; i++ {
-		afterChan <- time.Now()
+		clock.BlockingAdvance(time.Second)
 	}
 
 	<-ch
@@ -148,7 +137,7 @@ func (s *WatcherSuite) TestCheck(t *testing.T) {
 	watcher.Check()
 
 	for i := 1; i < 20; i++ {
-		afterChan <- time.Now()
+		clock.BlockingAdvance(time.Second)
 	}
 
 	<-ch
@@ -157,17 +146,15 @@ func (s *WatcherSuite) TestCheck(t *testing.T) {
 
 func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t *testing.T) {
 	var (
-		attempts  = 0
-		backoff   = &mockBackoff{}
-		afterChan = make(chan time.Time)
-		clock     = glock.NewMockClockWithAfterChan(afterChan)
-		sync1     = make(chan struct{})
-		sync2     = make(chan struct{})
+		attempts = 0
+		backoff  = &mockBackoff{}
+		clock    = glock.NewMockClock()
+		sync1    = make(chan struct{})
+		sync2    = make(chan struct{})
 	)
 
 	defer close(sync1)
 	defer close(sync2)
-	defer close(afterChan)
 
 	watcher := newWatcherWithClock(
 		RetryFunc(func() bool {
@@ -186,7 +173,7 @@ func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t *testing.T) {
 
 	for i := 1; i < 200; i++ {
 		watcher.Check()
-		afterChan <- time.Now()
+		clock.BlockingAdvance(time.Second)
 	}
 
 	<-sync1
@@ -201,17 +188,15 @@ func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t *testing.T) {
 
 func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t *testing.T) {
 	var (
-		attempts  = 0
-		backoff   = &mockBackoff{}
-		afterChan = make(chan time.Time)
-		clock     = glock.NewMockClockWithAfterChan(afterChan)
-		sync1     = make(chan struct{})
-		sync2     = make(chan struct{})
+		attempts = 0
+		backoff  = &mockBackoff{}
+		clock    = glock.NewMockClock()
+		sync1    = make(chan struct{})
+		sync2    = make(chan struct{})
 	)
 
 	defer close(sync1)
 	defer close(sync2)
-	defer close(afterChan)
 
 	watcher := newWatcherWithClock(
 		RetryFunc(func() bool {
@@ -226,7 +211,7 @@ func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t *testing.T) {
 	defer watcher.Stop()
 
 	for i := 1; i < 20; i++ {
-		afterChan <- time.Now()
+		clock.BlockingAdvance(time.Second)
 	}
 
 	<-ch
@@ -237,7 +222,7 @@ func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t *testing.T) {
 		watcher.Check()
 
 		for i := 1; i < 20; i++ {
-			afterChan <- time.Now()
+			clock.BlockingAdvance(time.Second)
 		}
 
 		<-ch
@@ -248,17 +233,15 @@ func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t *testing.T) {
 
 func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t *testing.T) {
 	var (
-		attempts  = 0
-		backoff   = &mockBackoff{}
-		afterChan = make(chan time.Time)
-		clock     = glock.NewMockClockWithAfterChan(afterChan)
-		sync1     = make(chan struct{})
-		sync2     = make(chan struct{})
+		attempts = 0
+		backoff  = &mockBackoff{}
+		clock    = glock.NewMockClock()
+		sync1    = make(chan struct{})
+		sync2    = make(chan struct{})
 	)
 
 	defer close(sync1)
 	defer close(sync2)
-	defer close(afterChan)
 
 	watcher := newWatcherWithClock(
 		RetryFunc(func() bool {
@@ -274,7 +257,7 @@ func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t *testing.T
 
 	for i := 1; i < 20; i++ {
 		watcher.Check()
-		afterChan <- time.Now()
+		clock.BlockingAdvance(time.Second)
 	}
 
 	<-ch
@@ -286,7 +269,7 @@ func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t *testing.T
 
 		for i := 1; i < 20; i++ {
 			watcher.Check()
-			afterChan <- time.Now()
+			clock.BlockingAdvance(time.Second)
 		}
 
 		<-ch

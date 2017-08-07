@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/aphistic/sweet"
-	junit "github.com/aphistic/sweet-junit"
+	"github.com/aphistic/sweet-junit"
 	. "github.com/onsi/gomega"
 )
 

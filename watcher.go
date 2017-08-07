@@ -7,7 +7,27 @@ import (
 
 type (
 	// Watcher invokes a Retry function until success.
-	Watcher struct {
+	Watcher interface {
+		// Start will *immediately* attempt to invoke the retry function. The
+		// watcher will re-invoke the retry function on failure, with a delay
+		// in between tries. On success, the watcher waits for a retry signal,
+		// at which point the process repeats. The channel returned will receive
+		// a value after the retry function returns true. The user should read a
+		// value from this channel after a retry request signal is sent, as this
+		// channel is un-buffered.
+		Start() <-chan struct{}
+
+		// Stop updates the watcher so that no future calls to the retry function
+		// are attempted. This method must not be called twice.
+		Stop()
+
+		// Check requests watcher to re-invoke the retry function until success.
+		// If the watcher is already in a retry cycle, then this function should
+		// have no observable effect. This method must not be called after Stop.
+		Check()
+	}
+
+	watcher struct {
 		retry   Retry
 		backoff backoff.Backoff
 		clock   glock.Clock
@@ -27,12 +47,12 @@ type (
 
 // NewWatcher creates a new watcher with the given retry function and
 // interval generator.
-func NewWatcher(retry Retry, backoff backoff.Backoff) *Watcher {
+func NewWatcher(retry Retry, backoff backoff.Backoff) Watcher {
 	return newWatcherWithClock(retry, backoff, glock.NewRealClock())
 }
 
-func newWatcherWithClock(retry Retry, backoff backoff.Backoff, clock glock.Clock) *Watcher {
-	return &Watcher{
+func newWatcherWithClock(retry Retry, backoff backoff.Backoff, clock glock.Clock) Watcher {
+	return &watcher{
 		retry:   retry,
 		backoff: backoff,
 		clock:   clock,
@@ -42,14 +62,7 @@ func newWatcherWithClock(retry Retry, backoff backoff.Backoff, clock glock.Clock
 	}
 }
 
-// Start begins watching in a goroutine. The watcher will *immediately*
-// attempt to invoke the retry function. The watcher will re-invoke the
-// retry function on failure, with a delay in between tries. On success,
-// the watcher waits for a retry signal, at which point the process
-// repeats. The channel returned will receive a value after the retry
-// function returns true. The user should read a value from this channel
-// after a retry request signal is sent, as this channel is unbuffered.
-func (w *Watcher) Start() <-chan struct{} {
+func (w *watcher) Start() <-chan struct{} {
 	success := make(chan struct{})
 
 	go func() {
@@ -81,6 +94,14 @@ func (w *Watcher) Start() <-chan struct{} {
 	return (<-chan struct{})(success)
 }
 
+func (w *watcher) Stop() {
+	close(w.quit)
+}
+
+func (w *watcher) Check() {
+	w.restart <- struct{}{}
+}
+
 // Repeatedly invoke the retry function in a loop until either the
 // function returns true or a signal is read from the quit channel.
 // We sleep some time (respecting the backoff intervals) in between
@@ -88,7 +109,7 @@ func (w *Watcher) Start() <-chan struct{} {
 // it clear, but we will not do anything special. Return true when
 // the function returns because an invocation of the retry function
 // was successful.
-func (w *Watcher) invocationLoop() bool {
+func (w *watcher) invocationLoop() bool {
 	ch := make(chan struct{})
 	defer close(ch)
 
@@ -120,19 +141,4 @@ func (w *Watcher) invocationLoop() bool {
 			return false
 		}
 	}
-}
-
-// Stop kills the watcher routine so that no future calls to the
-// retry function are attempted. This method must not be called
-// twice.
-func (w *Watcher) Stop() {
-	close(w.quit)
-}
-
-// Check will request the watcher to re-invoke the retry function
-// until success. If the watcher is already in a retry cycle, then
-// this function has no observable effect. This method must not be
-// called after Stop.
-func (w *Watcher) Check() {
-	w.restart <- struct{}{}
 }
