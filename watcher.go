@@ -1,6 +1,8 @@
 package watchdog
 
 import (
+	"context"
+
 	"github.com/efritz/backoff"
 	"github.com/efritz/glock"
 )
@@ -27,6 +29,15 @@ type (
 		Check()
 	}
 
+	// Retry is the interface to something which are invoked until success.
+	Retry interface {
+		// Some critical action, which should return true on success.
+		Retry() bool
+	}
+
+	// RetryFunc is a function that can be applied as a Retry.
+	RetryFunc func() bool
+
 	watcher struct {
 		retry   Retry
 		backoff backoff.Backoff
@@ -45,6 +56,27 @@ type (
 	}
 )
 
+// Retry will execute the RetryFunc.
+func (f RetryFunc) Retry() bool {
+	return f()
+}
+
+// BlockUntilSuccess creates a transient watcher that fires the given retry
+// function until success. This method takes a context object which will,
+// if canceled, will stop the watcher. Returns if the function succeeds and
+// false if the method was canceled.
+func BlockUntilSuccess(retry Retry, backoff backoff.Backoff, ctx context.Context) bool {
+	watcher := NewWatcher(retry, backoff)
+	defer watcher.Stop()
+
+	select {
+	case <-watcher.Start():
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
 // NewWatcher creates a new watcher with the given retry function and
 // interval generator.
 func NewWatcher(retry Retry, backoff backoff.Backoff) Watcher {
@@ -56,7 +88,6 @@ func newWatcherWithClock(retry Retry, backoff backoff.Backoff, clock glock.Clock
 		retry:   retry,
 		backoff: backoff,
 		clock:   clock,
-
 		quit:    make(chan struct{}),
 		restart: make(chan struct{}),
 	}

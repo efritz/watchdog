@@ -1,14 +1,56 @@
 package watchdog
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"github.com/aphistic/sweet"
+	"github.com/aphistic/sweet-junit"
 	"github.com/efritz/glock"
 	. "github.com/onsi/gomega"
 )
 
+func TestMain(m *testing.M) {
+	RegisterFailHandler(sweet.GomegaFail)
+
+	sweet.Run(m, func(s *sweet.S) {
+		s.RegisterPlugin(junit.NewPlugin())
+
+		s.AddSuite(&WatcherSuite{})
+	})
+}
+
 type WatcherSuite struct{}
+
+func (s *WatcherSuite) TestBlockUntilSuccess(t *testing.T) {
+	attempts := 0
+	f := RetryFunc(func() bool {
+		attempts++
+		return attempts == 2500
+	})
+
+	val := BlockUntilSuccess(f, &mockBackoff{}, context.Background())
+	Expect(val).To(BeTrue())
+	Expect(attempts).To(Equal(2500))
+}
+
+func (s *WatcherSuite) TestBlockUntilSuccessCanceled(t *testing.T) {
+	var (
+		f           = RetryFunc(func() bool { return false })
+		ch          = make(chan bool)
+		ctx, cancel = context.WithCancel(context.Background())
+	)
+
+	defer close(ch)
+
+	go func() {
+		ch <- BlockUntilSuccess(f, &mockBackoff{}, ctx)
+	}()
+
+	cancel()
+	Eventually(ch).Should(Receive(BeFalse()))
+}
 
 func (s *WatcherSuite) TestSuccess(t *testing.T) {
 	var (
@@ -276,4 +318,22 @@ func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t *testing.T
 		Expect(attempts).To(Equal((j + 1) * 20))
 		Expect(backoff.resets).To(Equal(j + 1))
 	}
+}
+
+//
+//
+//
+
+type mockBackoff struct {
+	resets    int
+	intervals int
+}
+
+func (m *mockBackoff) Reset() {
+	m.resets++
+}
+
+func (m *mockBackoff) NextInterval() time.Duration {
+	m.intervals++
+	return 0
 }
