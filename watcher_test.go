@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 
 type WatcherSuite struct{}
 
-func (s *WatcherSuite) TestBlockUntilSuccess(t *testing.T) {
+func (s *WatcherSuite) TestBlockUntilSuccess(t sweet.T) {
 	attempts := 0
 	f := RetryFunc(func() bool {
 		attempts++
@@ -35,7 +35,7 @@ func (s *WatcherSuite) TestBlockUntilSuccess(t *testing.T) {
 	Expect(attempts).To(Equal(2500))
 }
 
-func (s *WatcherSuite) TestBlockUntilSuccessCanceled(t *testing.T) {
+func (s *WatcherSuite) TestBlockUntilSuccessCanceled(t sweet.T) {
 	var (
 		f           = RetryFunc(func() bool { return false })
 		ch          = make(chan bool)
@@ -52,7 +52,7 @@ func (s *WatcherSuite) TestBlockUntilSuccessCanceled(t *testing.T) {
 	Eventually(ch).Should(Receive(BeFalse()))
 }
 
-func (s *WatcherSuite) TestSuccess(t *testing.T) {
+func (s *WatcherSuite) TestSuccess(t sweet.T) {
 	var (
 		attempts = 0
 		clock    = glock.NewMockClock()
@@ -78,7 +78,7 @@ func (s *WatcherSuite) TestSuccess(t *testing.T) {
 	Expect(attempts).To(Equal(20))
 }
 
-func (s *WatcherSuite) TestWatcherRespectsBackoff(t *testing.T) {
+func (s *WatcherSuite) TestWatcherRespectsBackoff(t sweet.T) {
 	var (
 		attempts = 0
 		clock    = glock.NewMockClock()
@@ -105,7 +105,7 @@ func (s *WatcherSuite) TestWatcherRespectsBackoff(t *testing.T) {
 	Expect(clock.GetAfterArgs()).To(HaveLen(3))
 }
 
-func (s *WatcherSuite) TestStop(t *testing.T) {
+func (s *WatcherSuite) TestStop(t sweet.T) {
 	var (
 		attempts = 0
 		clock    = glock.NewMockClock()
@@ -144,7 +144,7 @@ func (s *WatcherSuite) TestStop(t *testing.T) {
 	Expect(clock.GetAfterArgs()).To(HaveLen(200))
 }
 
-func (s *WatcherSuite) TestCheck(t *testing.T) {
+func (s *WatcherSuite) TestCheck(t sweet.T) {
 	var (
 		attempts = 0
 		clock    = glock.NewMockClock()
@@ -186,7 +186,7 @@ func (s *WatcherSuite) TestCheck(t *testing.T) {
 	Expect(attempts).To(Equal(60))
 }
 
-func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t *testing.T) {
+func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t sweet.T) {
 	var (
 		attempts = 0
 		backoff  = &mockBackoff{}
@@ -228,7 +228,7 @@ func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t *testing.T) {
 	Expect(clock.GetAfterArgs()).To(HaveLen(200))
 }
 
-func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t *testing.T) {
+func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t sweet.T) {
 	var (
 		attempts = 0
 		backoff  = &mockBackoff{}
@@ -273,7 +273,7 @@ func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t *testing.T) {
 	}
 }
 
-func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t *testing.T) {
+func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t sweet.T) {
 	var (
 		attempts = 0
 		backoff  = &mockBackoff{}
