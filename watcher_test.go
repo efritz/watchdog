@@ -16,7 +16,6 @@ func TestMain(m *testing.M) {
 
 	sweet.Run(m, func(s *sweet.S) {
 		s.RegisterPlugin(junit.NewPlugin())
-
 		s.AddSuite(&WatcherSuite{})
 	})
 }
