@@ -29,7 +29,7 @@ func (s *WatcherSuite) TestBlockUntilSuccess(t sweet.T) {
 		return attempts == 2500
 	})
 
-	val := BlockUntilSuccess(f, &mockBackoff{}, context.Background())
+	val := BlockUntilSuccess(context.Background(), f, &mockBackoff{})
 	Expect(val).To(BeTrue())
 	Expect(attempts).To(Equal(2500))
 }
@@ -44,7 +44,7 @@ func (s *WatcherSuite) TestBlockUntilSuccessCanceled(t sweet.T) {
 	defer close(ch)
 
 	go func() {
-		ch <- BlockUntilSuccess(f, &mockBackoff{}, ctx)
+		ch <- BlockUntilSuccess(ctx, f, &mockBackoff{})
 	}()
 
 	cancel()

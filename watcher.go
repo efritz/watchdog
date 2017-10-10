@@ -65,7 +65,7 @@ func (f RetryFunc) Retry() bool {
 // function until success. This method takes a context object which will,
 // if canceled, will stop the watcher. Returns if the function succeeds and
 // false if the method was canceled.
-func BlockUntilSuccess(retry Retry, backoff backoff.Backoff, ctx context.Context) bool {
+func BlockUntilSuccess(ctx context.Context, retry Retry, backoff backoff.Backoff) bool {
 	watcher := NewWatcher(retry, backoff)
 	defer watcher.Stop()
 
