@@ -2,8 +2,8 @@
 
 [![GoDoc](https://godoc.org/github.com/efritz/watchdog?status.svg)](https://godoc.org/github.com/efritz/watchdog)
 [![Build Status](https://secure.travis-ci.org/efritz/watchdog.png)](http://travis-ci.org/efritz/watchdog)
-[![Code Coverage](http://codecov.io/github/efritz/watchdog/coverage.svg?branch=master)](http://codecov.io/github/efritz/watchdog?branch=master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/efritz/watchdog)](https://goreportcard.com/report/github.com/efritz/watchdog)
+[![Maintainability](https://api.codeclimate.com/v1/badges/9aab8d8dce9e96f2ab9a/maintainability)](https://codeclimate.com/github/efritz/watchdog/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/9aab8d8dce9e96f2ab9a/test_coverage)](https://codeclimate.com/github/efritz/watchdog/test_coverage)
 
 Go library for automatic service reconnection.
 
