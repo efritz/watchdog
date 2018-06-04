@@ -1,5 +1,7 @@
 package watchdog
 
+//go:generate go-mockgen github.com/efritz/backoff -d internal
+
 import (
 	"context"
 	"testing"
@@ -9,6 +11,8 @@ import (
 	"github.com/aphistic/sweet-junit"
 	"github.com/efritz/glock"
 	. "github.com/onsi/gomega"
+
+	"github.com/efritz/watchdog/internal"
 )
 
 func TestMain(m *testing.M) {
@@ -29,7 +33,7 @@ func (s *WatcherSuite) TestBlockUntilSuccess(t sweet.T) {
 		return attempts == 2500
 	})
 
-	val := BlockUntilSuccess(context.Background(), f, &mockBackoff{})
+	val := BlockUntilSuccess(context.Background(), f, internal.NewMockBackoff())
 	Expect(val).To(BeTrue())
 	Expect(attempts).To(Equal(2500))
 }
@@ -44,7 +48,7 @@ func (s *WatcherSuite) TestBlockUntilSuccessCanceled(t sweet.T) {
 	defer close(ch)
 
 	go func() {
-		ch <- BlockUntilSuccess(ctx, f, &mockBackoff{})
+		ch <- BlockUntilSuccess(ctx, f, internal.NewMockBackoff())
 	}()
 
 	cancel()
@@ -62,7 +66,7 @@ func (s *WatcherSuite) TestSuccess(t sweet.T) {
 			attempts++
 			return attempts >= 20
 		}),
-		&mockBackoff{},
+		internal.NewMockBackoff(),
 		clock,
 	)
 
@@ -88,7 +92,7 @@ func (s *WatcherSuite) TestWatcherRespectsBackoff(t sweet.T) {
 			attempts++
 			return attempts >= 4
 		}),
-		&mockBackoff{},
+		internal.NewMockBackoff(),
 		clock,
 	)
 
@@ -124,7 +128,7 @@ func (s *WatcherSuite) TestStop(t sweet.T) {
 			}
 			return false
 		}),
-		&mockBackoff{},
+		internal.NewMockBackoff(),
 		clock,
 	)
 
@@ -154,7 +158,7 @@ func (s *WatcherSuite) TestCheck(t sweet.T) {
 			attempts++
 			return (attempts % 20) == 0
 		}),
-		&mockBackoff{},
+		internal.NewMockBackoff(),
 		clock,
 	)
 
@@ -188,7 +192,7 @@ func (s *WatcherSuite) TestCheck(t sweet.T) {
 func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t sweet.T) {
 	var (
 		attempts = 0
-		backoff  = &mockBackoff{}
+		backoff  = internal.NewMockBackoff()
 		clock    = glock.NewMockClock()
 		sync1    = make(chan struct{})
 		sync2    = make(chan struct{})
@@ -223,14 +227,14 @@ func (s *WatcherSuite) TestCheckDoesNotResetBackoffDuringWatch(t sweet.T) {
 
 	Eventually(ch).Should(BeClosed())
 	Expect(attempts).To(Equal(200))
-	Expect(backoff.resets).To(Equal(1))
+	Expect(backoff.ResetFuncCallCount).To(Equal(1))
 	Expect(clock.GetAfterArgs()).To(HaveLen(200))
 }
 
 func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t sweet.T) {
 	var (
 		attempts = 0
-		backoff  = &mockBackoff{}
+		backoff  = internal.NewMockBackoff()
 		clock    = glock.NewMockClock()
 		sync1    = make(chan struct{})
 		sync2    = make(chan struct{})
@@ -257,7 +261,7 @@ func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t sweet.T) {
 
 	<-ch
 	Expect(attempts).To(Equal(20))
-	Expect(backoff.intervals).To(Equal(19))
+	Expect(backoff.NextIntervalFuncCallCount).To(Equal(19))
 
 	for j := 1; j <= 20; j++ {
 		watcher.Check()
@@ -268,14 +272,14 @@ func (s *WatcherSuite) TestCheckResetsBackoffAfterSuccess(t sweet.T) {
 
 		<-ch
 		Expect(attempts).To(Equal((j + 1) * 20))
-		Expect(backoff.intervals).To(Equal((j + 1) * 19))
+		Expect(backoff.NextIntervalFuncCallCount).To(Equal((j + 1) * 19))
 	}
 }
 
 func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t sweet.T) {
 	var (
 		attempts = 0
-		backoff  = &mockBackoff{}
+		backoff  = internal.NewMockBackoff()
 		clock    = glock.NewMockClock()
 		sync1    = make(chan struct{})
 		sync2    = make(chan struct{})
@@ -303,7 +307,7 @@ func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t sweet.T) {
 
 	<-ch
 	Expect(attempts).To(Equal(20))
-	Expect(backoff.resets).To(Equal(1))
+	Expect(backoff.ResetFuncCallCount).To(Equal(1))
 
 	for j := 1; j <= 20; j++ {
 		watcher.Check()
@@ -315,24 +319,6 @@ func (s *WatcherSuite) TestCheckDoesNotInterruptIntervalDuringWatch(t sweet.T) {
 
 		<-ch
 		Expect(attempts).To(Equal((j + 1) * 20))
-		Expect(backoff.resets).To(Equal(j + 1))
+		Expect(backoff.ResetFuncCallCount).To(Equal(j + 1))
 	}
-}
-
-//
-//
-//
-
-type mockBackoff struct {
-	resets    int
-	intervals int
-}
-
-func (m *mockBackoff) Reset() {
-	m.resets++
-}
-
-func (m *mockBackoff) NextInterval() time.Duration {
-	m.intervals++
-	return 0
 }
