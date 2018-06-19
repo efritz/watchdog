@@ -21,7 +21,7 @@ type (
 		Start() <-chan struct{}
 
 		// Stop updates the watcher so that no future calls to the retry function
-		// are attempted. This method must not be called twice.
+		// are attempted.
 		Stop()
 
 		// Check requests watcher to re-invoke the retry function until success.
