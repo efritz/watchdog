@@ -2,6 +2,7 @@ package watchdog
 
 import (
 	"context"
+	"sync"
 
 	"github.com/efritz/backoff"
 	"github.com/efritz/glock"
@@ -42,6 +43,7 @@ type (
 		retry   Retry
 		backoff backoff.Backoff
 		clock   glock.Clock
+		once    *sync.Once
 
 		// The channel on which a quit signal can be sent. The watcher will
 		// shutdown its goroutines after receiving a value on this channel.
@@ -88,6 +90,7 @@ func newWatcherWithClock(retry Retry, backoff backoff.Backoff, clock glock.Clock
 		retry:   retry,
 		backoff: backoff,
 		clock:   clock,
+		once:    &sync.Once{},
 		quit:    make(chan struct{}),
 		restart: make(chan struct{}),
 	}
@@ -126,7 +129,9 @@ func (w *watcher) Start() <-chan struct{} {
 }
 
 func (w *watcher) Stop() {
-	close(w.quit)
+	w.once.Do(func() {
+		close(w.quit)
+	})
 }
 
 func (w *watcher) Check() {
